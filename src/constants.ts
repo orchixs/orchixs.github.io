@@ -11,11 +11,31 @@ export const SITE = {
 
 export const NAV_LINKS = [
   { label: 'Home',      href: '/' },
+  // { label: 'Anime',     href: '/anime/' },
+  { label: 'Novel',     href: '/novel/' },
   { label: 'Genre',     href: '/genre/' },
   // disable { label: 'Blog',      href: '/blog/' },
 ] as const;
 
-export const PER_PAGE = 12;
+export const NOVEL_STATUSES = [
+  'Ongoing', 
+  'Completed', 
+  'Hiatus', 
+  'Dropped'
+] as const;
+export type NovelStatus = typeof NOVEL_STATUSES[number];
+
+export const STATUS_VARIANT: Record<NovelStatus, 'success' | 'accent' | 'warning' | 'default'> = {
+  'Ongoing':   'success',
+  'Completed': 'accent',
+  'Hiatus':    'warning',
+  'Dropped':   'default',
+};
+
+export const URLS = {
+  novel:        (slug: string) => `/novel/${slug}/`,
+  novelChapter: (slug: string, chapter: number) => `/novel/${slug}/${chapter}/`,
+} as const;
 
 export const BREAKPOINTS = {
   tablet:  '48rem',
