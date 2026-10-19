@@ -2,7 +2,6 @@ User-agent: *
 Allow: /
 
 Disallow: /search/
-Disallow: /anime/watch/
 Disallow: /404
 
-Sitemap: https://qimochi.web.id/sitemap-index.xml
+Sitemap: https://orchixs.github.io/sitemap-index.xml
