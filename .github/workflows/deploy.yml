@@ -1,80 +1,86 @@
-name: Deploy to Cloudflare Pages
+name: Deploy Astro site to Pages
 
 on:
   push:
-    branches: [main, dev]
-  #repository_dispatch:
-    #types: [data-updated]
+    branches: [main]
+
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+env:
+  BUILD_PATH: "."
+
 jobs:
-  build-deploy:
+  build:
+    name: Build
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      deployments: write
-
     steps:
-      - name: Checkout qimochi
+      - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Checkout qimochi-data
-        uses: actions/checkout@v7
-        with:
-          repository: bimaakbar-dev/qimochi-data
-          path: _data
-
-      - name: Inject data
+      - name: Detect package manager
+        id: detect-package-manager
         run: |
-          rm -rf src/content/anime
-          rm -rf src/data/anime
-          rm -rf src/data/actors
-          rm -f  src/data/genres.json
-          rm -f  src/data/studios.json
-          mkdir -p src/content/anime
-          mkdir -p src/data
-          if [ -d _data/src/content/anime ]; then
-            cp -r _data/src/content/anime/. src/content/anime/
+          if [ -f "${{ github.workspace }}/yarn.lock" ]; then
+            echo "manager=yarn" >> $GITHUB_OUTPUT
+            echo "command=install" >> $GITHUB_OUTPUT
+            echo "runner=yarn" >> $GITHUB_OUTPUT
+            echo "lockfile=yarn.lock" >> $GITHUB_OUTPUT
+            exit 0
+          elif [ -f "${{ github.workspace }}/package.json" ]; then
+            echo "manager=npm" >> $GITHUB_OUTPUT
+            echo "command=ci" >> $GITHUB_OUTPUT
+            echo "runner=npx --no-install" >> $GITHUB_OUTPUT
+            echo "lockfile=package-lock.json" >> $GITHUB_OUTPUT
+            exit 0
+          else
+            echo "Unable to determine package manager"
+            exit 1
           fi
-          if [ -d _data/data/anime ]; then
-            cp -r _data/data/anime src/data/anime
-          fi
-          if [ -d _data/data/actors ]; then
-            cp -r _data/data/actors src/data/actors
-          fi
-          if [ -f _data/data/genres.json ]; then
-            cp _data/data/genres.json src/data/genres.json
-          fi
-          if [ -f _data/data/studios.json ]; then
-            cp _data/data/studios.json src/data/studios.json
-          fi
-          echo "=== src/content/anime (from qimochi-data) ==="
-          ls -1 src/content/anime/ | wc -l
-          echo "=== src/data/anime ==="
-          ls -1 src/data/anime/ 2>/dev/null | wc -l
-          echo "=== genres / studios ==="
-          ls -la src/data/genres.json src/data/studios.json 2>/dev/null || true
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 24
-          cache: npm
+          node-version: "24"
+          cache: ${{ steps.detect-package-manager.outputs.manager }}
+          cache-dependency-path: ${{ env.BUILD_PATH }}/${{ steps.detect-package-manager.outputs.lockfile }}
+
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v6
 
       - name: Install dependencies
-        run: npm ci
+        run: ${{ steps.detect-package-manager.outputs.manager }} ${{ steps.detect-package-manager.outputs.command }}
+        working-directory: ${{ env.BUILD_PATH }}
 
-      - name: Build
-        run: npm run build
-        env:
-          PUBLIC_GA_ID: ${{ vars.PUBLIC_GA_ID }}
-          PUBLIC_API_BASE: ${{ vars.PUBLIC_API_BASE }}
-          PUBLIC_TURNSTILE_SITE_KEY: ${{ vars.PUBLIC_TURNSTILE_SITE_KEY }}
-          PUBLIC_GOOGLE_CLIENT_ID: ${{ vars.PUBLIC_GOOGLE_CLIENT_ID }}
+      - name: Build with Astro
+        run: |
+          ${{ steps.detect-package-manager.outputs.runner }} astro build \
+            --site "${{ steps.pages.outputs.origin }}" \
+            --base "${{ steps.pages.outputs.base_path }}"
+        working-directory: ${{ env.BUILD_PATH }}
 
-      - name: Deploy
-        uses: cloudflare/wrangler-action@v4
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
         with:
-          apiToken: ${{ secrets.CF_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=qimochi --branch=${{ github.ref_name }} --commit-dirty=true
+          path: ${{ env.BUILD_PATH }}/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    needs: build
+    runs-on: ubuntu-latest
+    name: Deploy
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
