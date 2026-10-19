@@ -2,7 +2,7 @@ import { defineConfig, fontProviders, svgoOptimizer } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 
 export default defineConfig({
-  site: 'https://qimochi.web.id',
+  site: 'https://orchixs.github.io',
   trailingSlash: 'always',
   fonts: [
     {
@@ -53,8 +53,6 @@ export default defineConfig({
       filter: (page) => {
         if (page.includes('/search/')) return false;
         if (page.includes('/404/')) return false;
-        if (page.includes('/dmca/')) return false;
-        if (page.includes('/anime/watch/')) return false;
         if (page.includes('/disclaimer/')) return false;
         if (/\/\d+\/$/.test(page)) return false;
 
