@@ -1,0 +1,63 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import Page from '~/components/Page.astro';
+import SectionLabel from '~/components/SectionLabel.astro';
+import NovelCard from '~/components/NovelCard.astro';
+import Hero from '~/components/Hero.astro';
+import LinkButton from '~/user-components/LinkButton.astro';
+import { SITE } from '~/constants';
+import { getAllSeries } from '~/lib/novel';
+
+const allSeries = await getAllSeries();
+
+const latest = [...allSeries]
+  .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+  .slice(0, 12);
+---
+
+<BaseLayout title={SITE.title} description={SITE.description}>
+  <Page class="wrapper">
+    <Hero title={SITE.name} size="lg" />
+
+    {latest.length > 0 ? (
+      <section class="section">
+        <header class="section__header">
+          <SectionLabel>Novel Terbaru</SectionLabel>
+          <LinkButton href="/novel/" variant="ghost" size="sm" icon="arrow-right" iconPos="suffix">
+            Lihat Semua
+          </LinkButton>
+        </header>
+        <div class="novel-grid">
+          {latest.map((s) => (
+            <NovelCard
+              novel={{
+                id: s.slug,
+                data: {
+                  title: s.title,
+                  cover: s.cover,
+                  status: s.status,
+                  author: s.author,
+                  synopsis: s.synopsis,
+                  chapters: Array.from({ length: s.totalChapters }, (_, i) => ({ number: i + 1 })),
+                },
+              }}
+            />
+          ))}
+        </div>
+      </section>
+    ) : (
+      <div class="empty">
+        <p>Belum ada novel. Nanti akan tampil di sini.</p>
+      </div>
+    )}
+  </Page>
+</BaseLayout>
+
+<style>
+  .wrapper { padding-block: var(--s-6) var(--s-12); gap: var(--s-8); }
+  .section { display: flex; flex-direction: column; gap: var(--s-4); }
+  .section__header { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; }
+  .novel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); }
+  @media (min-width: 50rem) { .novel-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--s-4); } }
+  .empty { padding: var(--s-12) 0; text-align: center; color: var(--text-muted); font-size: var(--fs-sm); }
+</style>
