@@ -1,0 +1,246 @@
+---
+import Badge from '~/user-components/Badge.astro';
+import Icon from '~/user-components/Icons.astro';
+import { URLS, STATUS_VARIANT, type NovelStatus } from '~/constants';
+
+interface CardNovel {
+  id: string;
+  data: {
+    title: string;
+    cover: string;
+    status: string;
+    author: string;
+    synopsis?: string;
+    chapters?: { number: number }[];
+  };
+}
+
+interface Props {
+  mode?: 'grid' | 'template';
+  novel?: CardNovel;
+  rich?: boolean;
+}
+
+const { mode = 'grid', novel, rich = true } = Astro.props;
+const isTemplate = mode === 'template';
+
+if (!isTemplate && !novel) {
+  throw new Error('[NovelCard] Prop "novel" wajib diisi.');
+}
+
+const id = novel?.id ?? '';
+const data = novel?.data;
+
+const variant = data
+  ? STATUS_VARIANT[data.status as NovelStatus] ?? 'default'
+  : 'default';
+
+const chapters = data?.chapters ?? [];
+const totalChapters = chapters.length;
+const firstChapter = totalChapters > 0
+  ? Math.min(...chapters.map((c) => c.number))
+  : 1;
+
+const chapterLabel = totalChapters > 0 ? `${totalChapters} Chapter` : null;
+const authorLabel = data?.author && data.author !== 'Unknown' ? data.author : null;
+
+function plainExcerpt(input: string | undefined, maxLen = 110): string {
+  if (!input) return '';
+  const cleaned = input
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/[*_`>#]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned.length <= maxLen
+    ? cleaned
+    : cleaned.slice(0, maxLen).trimEnd() + '…';
+}
+
+const excerpt = plainExcerpt(data?.synopsis);
+---
+
+{isTemplate && (
+  <template id="novel-card-template">
+    <article class="novel-card novel-card-rich">
+      <a class="novel-card__link" data-card-link>
+        <div class="cover">
+          <div class="cover-placeholder is-loading" aria-hidden="true"></div>
+          <img width="300" height="450" loading="lazy" decoding="async" data-cover-img />
+          <div class="status-overlay">
+            <span class="card-status" data-card-status></span>
+          </div>
+        </div>
+      </a>
+      <div class="info">
+        <h3 data-card-title-info></h3>
+        <p class="author" data-card-author hidden></p>
+      </div>
+    </article>
+  </template>
+)}
+
+{!isTemplate && (
+  <article
+    class:list={[
+      'novel-card',
+      { 'novel-card-rich': rich },
+    ]}
+  >
+    <a
+      href={URLS.novel(id)}
+      class="novel-card__link"
+      aria-label={data!.title}
+    >
+      <div class="cover">
+        <div class="cover-placeholder is-loading" aria-hidden="true"></div>
+        <img
+          src={data!.cover}
+          alt={`Cover ${data!.title}`}
+          width="300"
+          height="450"
+          loading="lazy"
+          decoding="async"
+          data-cover-img
+        />
+        <div class="status-overlay">
+          <Badge variant={variant} size="sm">{data!.status}</Badge>
+        </div>
+      </div>
+    </a>
+
+    {rich && (
+      <div class="preview" aria-hidden="true">
+        <div class="preview__inner">
+          <h4 class="preview__title">{data!.title}</h4>
+          {authorLabel && (
+            <ul class="preview__meta">
+              <li>{authorLabel}</li>
+            </ul>
+          )}
+          {excerpt && <p class="preview__excerpt">{excerpt}</p>}
+          <div class="preview__actions">
+            {totalChapters > 0 ? (
+              <a
+                href={URLS.novelChapter(id, firstChapter)}
+                class="preview__btn preview__btn--read"
+                aria-label={`Baca ${data!.title}`}
+              >
+                <Icon name="book" size={16} />
+              </a>
+            ) : (
+              <span class="preview__btn is-disabled" aria-disabled="true">
+                <Icon name="book" size={16} />
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+
+    <div class="info">
+      <h3 set:html={data!.title} />
+      {authorLabel && <p class="author">{authorLabel}</p>}
+      {chapterLabel && <span class="chapters">{chapterLabel}</span>}
+    </div>
+  </article>
+)}
+
+<script>
+  (function () {
+    function setupCoverImage(img: HTMLImageElement): void {
+      if (img.dataset.ready === '1') return;
+      img.dataset.ready = '1';
+
+      const wrap = img.parentElement;
+      const placeholder = wrap?.querySelector<HTMLElement>('.cover-placeholder') ?? null;
+
+      const stopShimmer = () => placeholder?.classList.remove('is-loading');
+      const fail = () => {
+        img.hidden = true;
+        stopShimmer();
+      };
+
+      if (img.complete && img.naturalWidth > 0) {
+        stopShimmer();
+        return;
+      }
+      if (img.complete && img.naturalWidth === 0) {
+        fail();
+        return;
+      }
+
+      img.addEventListener('load', stopShimmer, { once: true });
+      img.addEventListener('error', fail, { once: true });
+    }
+
+    function init(scope: ParentNode = document): void {
+      scope.querySelectorAll<HTMLImageElement>('[data-cover-img]').forEach(setupCoverImage);
+    }
+
+    init();
+    window.addEventListener('qimochi:covers', (e) => {
+      const detail = (e as CustomEvent<ParentNode>).detail;
+      if (detail) init(detail);
+    });
+  })();
+</script>
+
+<style is:global>
+  .novel-card { position: relative; display: block; min-width: 0; }
+  .cover-placeholder { position: absolute; inset: 0; z-index: 0; overflow: hidden; background: var(--bg-surface); pointer-events: none; }
+  .cover-placeholder.is-loading::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(100deg, transparent 20%, var(--bg-hover) 50%, transparent 80%);
+    transform: translateX(-100%); animation: cover-shimmer 1.6s infinite;
+  }
+  @keyframes cover-shimmer { 100% { transform: translateX(100%); } }
+  @media (prefers-reduced-motion: reduce) { .cover-placeholder.is-loading::before { animation: none; opacity: 0; } }
+
+  [data-cover-img] { position: relative; z-index: 1; display: block; width: 100%; height: 100%; object-fit: cover; transition: opacity var(--t-base); }
+  [data-cover-img][hidden] { display: none; }
+
+  .status-overlay { position: absolute; bottom: var(--s-2); left: var(--s-2); z-index: 3; }
+  .status-overlay span { text-transform: uppercase; }
+
+  .novel-card .novel-card__link { display: block; color: inherit; text-decoration: none; }
+  .novel-card .novel-card__link::after { content: ''; position: absolute; inset: 0; z-index: 1; }
+
+  .novel-card .cover { position: relative; aspect-ratio: 2 / 3; overflow: hidden; background: var(--bg-surface); }
+  .novel-card .cover::after {
+    content: ''; position: absolute; inset: 0; z-index: 2;
+    background: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.6) 100%);
+    pointer-events: none; transition: opacity var(--t-fast);
+  }
+
+  .card-status { display: inline-flex; align-items: center; padding: 0.1875rem var(--s-2); font-size: 0.625rem; font-weight: var(--fw-semibold); letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; white-space: nowrap; }
+
+  .novel-card .info { padding: var(--s-3) 0 0; display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+  .novel-card .info h3 { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-primary); line-height: var(--lh-tight); margin: 0; min-width: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+
+  .author { margin: 0; font-size: var(--fs-xs); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chapters { display: block; margin: 0; font-size: var(--fs-xs); color: var(--text-muted); font-variant-numeric: tabular-nums; font-weight: var(--fw-medium); }
+
+  .preview {
+    position: absolute; inset: 0; z-index: 5; background: hsla(30, 3%, 5%, 0.94);
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+    padding: var(--s-3); opacity: 0; pointer-events: none; transition: opacity var(--t-base); overflow: hidden;
+  }
+  .preview__inner { display: flex; flex-direction: column; gap: var(--s-2); height: 100%; min-width: 0; overflow: hidden; }
+  .preview__title { margin: 0; font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-primary); line-height: var(--lh-tight); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex-shrink: 0; }
+  .preview__meta { list-style: none; margin: 0; padding: 0; font-size: var(--fs-xs); color: var(--text-primary); font-weight: var(--fw-medium); line-height: 1.3; flex-shrink: 0; }
+  .preview__excerpt { margin: 0; font-size: var(--fs-xs); line-height: 1.4; color: var(--text-secondary); display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+  .preview__excerpt:empty { display: none; }
+  .preview__actions { display: flex; align-items: center; gap: var(--s-1); margin-top: auto; flex-shrink: 0; padding-top: var(--s-1); }
+  .preview__btn { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; padding: 0; border: none; background: transparent; color: var(--accent); border-radius: var(--r-sm); cursor: pointer; transition: color var(--t-fast); }
+  .preview__btn svg { width: 1.333em; height: 1.333em; flex-shrink: 0; }
+  .preview__btn:hover { color: var(--accent-hover); }
+  .preview__btn.is-disabled { color: hsla(0, 0%, 100%, 0.3); cursor: not-allowed; pointer-events: none; }
+
+  @media (hover: hover) and (pointer: fine) {
+    .novel-card-rich:hover .preview { opacity: 1; }
+    .novel-card-rich:hover .preview__btn { pointer-events: auto; }
+    .novel-card-rich:hover .cover img { opacity: 0.15; }
+    .novel-card-rich:hover .cover::after, .novel-card-rich:hover .status-overlay { opacity: 0; }
+  }
+</style>
