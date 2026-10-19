@@ -1,0 +1,58 @@
+---
+import { render } from 'astro:content';
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import NovelReader from '~/components/NovelReader.astro';
+import { URLS } from '~/constants';
+import {
+  getAllSeries,
+  getChaptersBySeries,
+  getChapterEntry,
+  prevChapter,
+  nextChapter,
+} from '~/lib/novel';
+
+export async function getStaticPaths() {
+  const allSeries = await getAllSeries();
+  const paths = [];
+
+  for (const s of allSeries) {
+    const chapters = await getChaptersBySeries(s.slug);
+    for (const c of chapters) {
+      paths.push({
+        params: { slug: s.slug, chapter: String(c.number) },
+        props: { series: s, chapterNum: c.number },
+      });
+    }
+  }
+
+  return paths;
+}
+
+const { series, chapterNum } = Astro.props;
+const chapter = await getChapterEntry(series.slug, chapterNum);
+
+if (!chapter) {
+  throw new Error(`Chapter ${chapterNum} tidak ditemukan di ${series.slug}`);
+}
+
+const { Content } = await render(chapter.entry);
+const chapters = await getChaptersBySeries(series.slug);
+const prev = prevChapter(chapters, chapterNum);
+const next = nextChapter(chapters, chapterNum);
+---
+
+<BaseLayout
+  title={`${series.title} — ${chapter.title}`}
+  description={`Baca ${series.title} ${chapter.title} subtitle Indonesia.`}
+  noindex={true}
+>
+  <NovelReader
+    novelTitle={series.title}
+    chapterTitle={chapter.title}
+    prevUrl={prev ? URLS.novelChapter(series.slug, prev.number) : undefined}
+    nextUrl={next ? URLS.novelChapter(series.slug, next.number) : undefined}
+    tocUrl={URLS.novel(series.slug)}
+  >
+    <Content />
+  </NovelReader>
+</BaseLayout>
