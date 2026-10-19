@@ -3,7 +3,6 @@ import { SITE, NAV_LINKS } from '~/constants';
 import { Image } from 'astro:assets';
 import logoImg from '~/assets/images/logo/logo.svg';
 import Icon from '~/user-components/Icons.astro';
-import UserMenu from '~/components/UserMenu.astro';
 import MobileMenu from './MobileMenu.astro';
 
 const currentPath = Astro.url.pathname;
@@ -51,13 +50,6 @@ function isActive(href: string): boolean {
     </div>
     
     <div class="header-right">
-      <a href="/search/" class="icon-btn" aria-label="Cari anime">
-        <Icon name="search" size={20} />
-      </a>
-      <a href="/anime/watchlist/" class="icon-btn" aria-label="Daftar tontonan">
-        <Icon name="bookmark" size={20} />
-      </a>
-      <UserMenu />
       <MobileMenu>
         <nav class="nav nav--mobile" aria-label="Navigasi utama">
           {NAV_LINKS.map(({ label, href }) => (
