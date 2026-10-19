@@ -1,0 +1,117 @@
+---
+import Icon from '~/user-components/Icons.astro';
+
+interface Props {
+  novelTitle: string;
+  chapterTitle: string;
+  prevUrl?: string;
+  nextUrl?: string;
+  tocUrl: string;
+}
+
+const { novelTitle, chapterTitle, prevUrl, nextUrl, tocUrl } = Astro.props;
+---
+
+<div class="reader-wrapper">
+  <header class="reader-header">
+    <a href={tocUrl} class="reader-header__back" aria-label="Kembali ke daftar chapter">
+      <Icon name="arrow-left" size={20} />
+    </a>
+    <div class="reader-header__title">{novelTitle}</div>
+    <div class="reader-header__spacer"></div>
+  </header>
+
+  <main class="reader-content">
+    <div class="reader-content__inner">
+      <h1 class="reader-chapter-title">{chapterTitle}</h1>
+      
+      <div class="reader-text markdown">
+        <slot />
+      </div>
+
+      <div class="reader-end-nav">
+        {prevUrl ? (
+          <a href={prevUrl} class="reader-end-btn">
+            <Icon name="arrow-left" size={16} /> Prev
+          </a>
+        ) : <div class="reader-end-btn is-disabled" />}
+        
+        {nextUrl ? (
+          <a href={nextUrl} class="reader-end-btn">
+            Next <Icon name="arrow-right" size={16} />
+          </a>
+        ) : <div class="reader-end-btn is-disabled" />}
+      </div>
+    </div>
+  </main>
+
+  <div class="reader-bottom-bar">
+    <a href={tocUrl} class="reader-bar-btn">
+      <Icon name="list" size={20} />
+      <span>Daftar</span>
+    </a>
+    
+    {prevUrl ? (
+      <a href={prevUrl} class="reader-bar-btn">
+        <Icon name="arrow-left" size={20} />
+        <span>Prev</span>
+      </a>
+    ) : <div class="reader-bar-btn is-disabled" />}
+
+    {nextUrl ? (
+      <a href={nextUrl} class="reader-bar-btn">
+        <Icon name="arrow-right" size={20} />
+        <span>Next</span>
+      </a>
+    ) : <div class="reader-bar-btn is-disabled" />}
+  </div>
+</div>
+
+<style>
+  .reader-wrapper { display: flex; flex-direction: column; min-height: 100vh; background: var(--bg-base); }
+  
+  .reader-header {
+    position: sticky; top: 0; z-index: var(--z-header);
+    display: flex; align-items: center; gap: var(--s-3);
+    height: 3.5rem; padding-inline: var(--pad-x);
+    background: hsla(30, 3%, 5%, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  .reader-header__back { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; color: var(--text-inverted); background: var(--bg-surface); border-radius: var(--r-full); }
+  .reader-header__title { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-inverted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .reader-header__spacer { width: 2rem; }
+
+  .reader-content { flex: 1; padding-block: var(--s-6) var(--s-16); }
+  .reader-content__inner { max-width: 100%; margin-inline: auto; padding-inline: var(--pad-x); }
+  .reader-chapter-title { margin: 0 0 var(--s-6); font-size: var(--fs-xl); font-weight: var(--fw-bold); color: var(--text-primary); line-height: var(--lh-tight); text-align: center; }
+
+  .reader-text {
+    font-family: Georgia, 'Times New Roman', serif; 
+    font-size: 1.125rem; line-height: 1.8; color: var(--text-primary);
+  }
+  .reader-text :global(p) { margin-bottom: var(--s-4); text-align: justify; text-justify: inter-word; }
+  .reader-text :global(p:first-of-type) { text-indent: 0; }
+  .reader-text :global(em) { font-style: italic; }
+  .reader-text :global(strong) { font-weight: bold; color: var(--text-primary); }
+
+  .reader-end-nav { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); margin-top: var(--s-8); padding-top: var(--s-6); border-top: 1px solid var(--border); }
+  .reader-end-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2); padding: var(--s-3) var(--s-4); background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text-primary); text-decoration: none; font-size: var(--fs-sm); font-weight: var(--fw-medium); text-align: center; }
+  .reader-end-btn.is-disabled { opacity: 0.3; pointer-events: none; }
+
+  .reader-bottom-bar {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: var(--z-header);
+    display: flex; align-items: center; justify-content: space-around;
+    background: hsla(30, 3%, 5%, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .reader-bar-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; flex: 1; padding: var(--s-3) 0; color: var(--text-secondary); text-decoration: none; font-size: 0.6875rem; font-weight: var(--fw-medium); transition: color var(--t-fast); }
+  .reader-bar-btn:hover, .reader-bar-btn:active { color: var(--accent); }
+  .reader-bar-btn.is-disabled { opacity: 0.3; pointer-events: none; }
+
+  @media (min-width: 50rem) {
+    .reader-bottom-bar { display: none; }
+    .reader-content__inner { max-width: 65ch; }
+    .reader-end-nav { display: flex; justify-content: space-between; }
+    .reader-end-btn { flex: 0 1 auto; min-width: 150px; }
+  }
+</style>
