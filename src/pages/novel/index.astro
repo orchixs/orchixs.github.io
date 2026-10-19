@@ -1,0 +1,45 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import Page from '~/components/Page.astro';
+import Hero from '~/components/Hero.astro';
+import NovelCard from '~/components/NovelCard.astro';
+import { getAllSeries } from '~/lib/novel';
+
+const allSeries = await getAllSeries();
+const sorted = [...allSeries].sort((a, b) => a.title.localeCompare(b.title, 'id-ID'));
+---
+
+<BaseLayout title="Semua Novel" description="Jelajahi semua light novel terjemahan Indonesia." canonical="/novel/">
+  <Page class="wrapper">
+    <Hero title="Semua Novel" />
+
+    {sorted.length > 0 ? (
+      <div class="novel-grid">
+        {sorted.map((s) => (
+          <NovelCard
+            novel={{
+              id: s.slug,
+              data: {
+                title: s.title,
+                cover: s.cover,
+                status: s.status,
+                author: s.author,
+                synopsis: s.synopsis,
+                chapters: Array.from({ length: s.totalChapters }, (_, i) => ({ number: i + 1 })),
+              },
+            }}
+          />
+        ))}
+      </div>
+    ) : (
+      <p class="empty">Belum ada novel.</p>
+    )}
+  </Page>
+</BaseLayout>
+
+<style>
+  .wrapper { padding-block: var(--s-6) var(--s-12); gap: var(--s-6); }
+  .novel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); }
+  @media (min-width: 50rem) { .novel-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--s-4); } }
+  .empty { padding: var(--s-12) 0; text-align: center; color: var(--text-muted); font-size: var(--fs-sm); }
+</style>
