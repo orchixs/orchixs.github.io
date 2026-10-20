@@ -1,0 +1,51 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import Page from '~/components/Page.astro';
+import Hero from '~/components/Hero.astro';
+import Breadcrumb from '~/components/Breadcrumb.astro';
+import NovelGrid from '~/components/NovelGrid.astro';
+import { getAllSeries, getGenres } from '~/lib/novel';
+import { genreLabel } from '~/lib/format';
+
+export async function getStaticPaths() {
+  const [genres, all] = await Promise.all([getGenres(), getAllSeries()]);
+
+  return genres.map(({ slug }) => ({
+    params: { genre: slug },
+    props: {
+      genre: slug,
+      series: all
+        .filter((s) => s.genres.includes(slug))
+        .sort((a, b) => a.title.localeCompare(b.title, 'id-ID')),
+    },
+  }));
+}
+
+const { genre, series } = Astro.props;
+const label = genreLabel(genre);
+---
+
+<BaseLayout
+  title={`Novel ${label}`}
+  description={`Daftar light novel dan web novel genre ${label} bahasa Indonesia.`}
+  canonical={`/genre/${genre}/`}
+>
+  <Page class="wrapper">
+    <Breadcrumb
+      items={[
+        { label: 'Home', href: '/' },
+        { label: 'Genre', href: '/genre/' },
+        { label },
+      ]}
+    />
+    <Hero title={label} />
+    <NovelGrid series={series} />
+  </Page>
+</BaseLayout>
+
+<style>
+  .wrapper {
+    padding-block: var(--s-6) var(--s-12);
+    gap: var(--s-6);
+  }
+</style>
