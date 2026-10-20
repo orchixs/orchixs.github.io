@@ -1,23 +1,36 @@
 import rss from '@astrojs/rss';
 import type { APIContext } from 'astro';
-import { SITE } from '~/constants';
-import { getPublishedPosts } from '~/lib/blog';
+import { SITE, URLS } from '~/constants';
+import { getAllSeries, type ChapterInfo, type SeriesInfo } from '~/lib/novel';
+
+function chapterHeading(series: SeriesInfo, chapter: ChapterInfo): string {
+  const custom = chapter.title !== `Chapter ${chapter.number}` ? chapter.title : null;
+  return custom
+    ? `${series.title} — Chapter ${chapter.number}: ${custom}`
+    : `${series.title} — Chapter ${chapter.number}`;
+}
 
 export async function GET(context: APIContext) {
-  const posts = await getPublishedPosts();
+  const all = await getAllSeries();
+
+  const items = all
+    .flatMap((series) =>
+      series.chapters.map((chapter) => ({
+        title: chapterHeading(series, chapter),
+        link: URLS.novelChapter(series.slug, chapter.number),
+        pubDate: chapter.publishedAt,
+        description: `Chapter ${chapter.number} dari ${series.title}.`,
+        categories: ['Novel', series.status, ...series.genres],
+      })),
+    )
+    .sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime())
+    .slice(0, 50);
 
   return rss({
-    title: SITE.name,
+    title: `${SITE.name} — Chapter Baru`,
     description: SITE.description,
     site: context.site!,
-    items: posts.map(post => ({
-      title: post.data.title,
-      description: post.data.description,
-      link: `/blog/${post.id}/`,
-      pubDate: post.data.date,
-      categories: [post.data.category, ...post.data.tags],
-      author: post.data.author,
-    })),
+    items,
     customData: `<language>id-ID</language>`,
   });
 }
