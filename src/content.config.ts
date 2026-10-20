@@ -3,29 +3,28 @@ import { z } from 'astro/zod';
 import { glob } from 'astro/loaders';
 
 const Slug = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
-const NovelStatus = z.enum(['Ongoing', 'Completed', 'Hiatus', 'Dropped']);
 
-const novel = defineCollection({
-  loader: glob({
-    pattern: ['**/*.md', '!**/_*.md', '**/_index.md'],
-    base: './src/content/novel',
-  }),
+const series = defineCollection({
+  loader: glob({ pattern: '*/index.md', base: './src/content/novel' }),
   schema: z.object({
-    type: z.enum(['series', 'chapter']),
-
-    // Series-only
-    title: z.string().optional(),
-    author: z.string().optional(),
-    cover: z.string().url().optional(),
-    synopsis: z.string().optional(),
-    status: NovelStatus.optional(),
+    title: z.string(),
+    author: z.string().default('Unknown'),
+    cover: z.string().default(''),
+    synopsis: z.string().default(''),
+    status: z.enum(['Ongoing', 'Completed', 'Hiatus', 'Dropped']).default('Ongoing'),
     genres: z.array(Slug).default([]),
     year: z.number().int().min(1900).max(2100).optional(),
+    draft: z.boolean().default(false),
+  }),
+});
 
-    // Chapter-only
-    chapter: z.number().int().positive().optional(),
+const chapters = defineCollection({
+  loader: glob({ pattern: '*/[0-9]*.md', base: './src/content/novel' }),
+  schema: z.object({
+    chapter: z.number().int().positive(),
     chapterTitle: z.string().optional(),
-    publishedAt: z.coerce.date().optional(),
+    publishedAt: z.coerce.date(),
+    draft: z.boolean().default(false),
   }),
 });
 
@@ -44,4 +43,4 @@ const blog = defineCollection({
   }),
 });
 
-export const collections = { novel, blog };
+export const collections = { series, chapters, blog };
