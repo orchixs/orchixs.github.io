@@ -1,0 +1,89 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import Page from '~/components/Page.astro';
+import Hero from '~/components/Hero.astro';
+import { URLS } from '~/constants';
+import { getGenres } from '~/lib/novel';
+import { genreLabel } from '~/lib/format';
+
+const genres = await getGenres();
+---
+
+<BaseLayout
+  title="Genre"
+  description="Jelajahi light novel dan web novel berdasarkan genre."
+  canonical="/genre/"
+>
+  <Page class="wrapper">
+    <Hero title="Genre" />
+
+    {genres.length > 0 ? (
+      <ul class="genre-grid">
+        {genres.map((g) => (
+          <li>
+            <a href={URLS.genre(g.slug)} class="genre-link">
+              <span class="genre-name">{genreLabel(g.slug)}</span>
+              <span class="genre-count">{g.count}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p class="empty">Belum ada genre.</p>
+    )}
+  </Page>
+</BaseLayout>
+
+<style>
+  .wrapper {
+    padding-block: var(--s-6) var(--s-12);
+    gap: var(--s-6);
+  }
+
+  .genre-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-3);
+    padding: 0;
+    margin: 0;
+  }
+
+  .genre-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+    padding: var(--s-3) var(--s-4);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    transition: border-color var(--t-fast), color var(--t-fast);
+  }
+
+  .genre-link:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .genre-count {
+    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .empty {
+    padding: var(--s-12) 0;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+  }
+
+  @media (min-width: 50rem) {
+    .genre-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+</style>
