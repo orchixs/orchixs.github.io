@@ -2,116 +2,836 @@
 import Icon from '~/user-components/Icons.astro';
 
 interface Props {
+  seriesSlug: string;
+  chapterNumber: number;
   novelTitle: string;
-  chapterTitle: string;
+  chapterHeading: string;
+  tocUrl: string;
   prevUrl?: string;
   nextUrl?: string;
-  tocUrl: string;
 }
 
-const { novelTitle, chapterTitle, prevUrl, nextUrl, tocUrl } = Astro.props;
+const {
+  seriesSlug,
+  chapterNumber,
+  novelTitle,
+  chapterHeading,
+  tocUrl,
+  prevUrl,
+  nextUrl,
+} = Astro.props;
 ---
 
-<div class="reader-wrapper">
+<!-- Terapkan pengaturan sebelum konten dirender (anti flash tema). -->
+<script is:inline>
+  (function () {
+    try {
+      var s = JSON.parse(localStorage.getItem('yukionovel:reader') || '{}') || {};
+      var r = document.documentElement;
+      if (s.theme === 'light' || s.theme === 'sepia') r.dataset.readerTheme = s.theme;
+      if (s.font === 'sans') r.dataset.readerFont = 'sans';
+      if (typeof s.size === 'number' && s.size >= 14 && s.size <= 28) {
+        r.style.setProperty('--reader-size', s.size / 16 + 'rem');
+      }
+      if (s.spacing === 1.6 || s.spacing === 1.8 || s.spacing === 2) {
+        r.style.setProperty('--reader-lh', String(s.spacing));
+      }
+    } catch (e) {}
+  })();
+</script>
+
+{nextUrl && <link rel="prefetch" href={nextUrl} />}
+
+<div
+  class="reader-wrapper"
+  data-reader
+  data-chrome="show"
+  data-slug={seriesSlug}
+  data-chapter={chapterNumber}
+  data-prev={prevUrl}
+  data-next={nextUrl}
+>
   <header class="reader-header">
-    <a href={tocUrl} class="reader-header__back" aria-label="Kembali ke daftar chapter">
+    <a href={tocUrl} class="reader-btn" aria-label="Kembali ke daftar chapter">
       <Icon name="arrow-left" size={20} />
     </a>
-    <div class="reader-header__title">{novelTitle}</div>
-    <div class="reader-header__spacer"></div>
+
+    <div class="reader-header__title">
+      <span class="reader-header__novel">{novelTitle}</span>
+      <span class="reader-header__chapter">{chapterHeading}</span>
+    </div>
+
+    <button
+      type="button"
+      class="reader-btn reader-btn--text"
+      data-settings-toggle
+      aria-expanded="false"
+      aria-controls="reader-panel"
+      aria-label="Pengaturan bacaan"
+    >
+      Aa
+    </button>
+
+    <div class="reader-progress" data-progress aria-hidden="true"></div>
   </header>
 
-  <main class="reader-content">
+  <div class="reader-panel" id="reader-panel" data-panel hidden>
+    <div class="reader-panel__row">
+      <span class="reader-panel__label">Tema</span>
+      <div class="seg" role="group" aria-label="Tema">
+        <button type="button" data-set="theme" data-value="dark" aria-pressed="false">Gelap</button>
+        <button type="button" data-set="theme" data-value="sepia" aria-pressed="false">Sepia</button>
+        <button type="button" data-set="theme" data-value="light" aria-pressed="false">Terang</button>
+      </div>
+    </div>
+
+    <div class="reader-panel__row">
+      <span class="reader-panel__label">Font</span>
+      <div class="seg" role="group" aria-label="Jenis font">
+        <button type="button" data-set="font" data-value="serif" aria-pressed="false">Serif</button>
+        <button type="button" data-set="font" data-value="sans" aria-pressed="false">Sans</button>
+      </div>
+    </div>
+
+    <div class="reader-panel__row">
+      <span class="reader-panel__label">Ukuran</span>
+      <div class="seg seg--size" role="group" aria-label="Ukuran teks">
+        <button type="button" data-size-step="-1" aria-label="Perkecil teks">A−</button>
+        <output data-size-label aria-live="polite">18</output>
+        <button type="button" data-size-step="1" aria-label="Perbesar teks">A+</button>
+      </div>
+    </div>
+
+    <div class="reader-panel__row">
+      <span class="reader-panel__label">Jarak</span>
+      <div class="seg" role="group" aria-label="Jarak baris">
+        <button type="button" data-set="spacing" data-value="1.6" aria-pressed="false">Rapat</button>
+        <button type="button" data-set="spacing" data-value="1.8" aria-pressed="false">Normal</button>
+        <button type="button" data-set="spacing" data-value="2" aria-pressed="false">Lega</button>
+      </div>
+    </div>
+  </div>
+
+  <article class="reader-content">
     <div class="reader-content__inner">
-      <h1 class="reader-chapter-title">{chapterTitle}</h1>
-      
+      <a href={tocUrl} class="reader-novel-link">{novelTitle}</a>
+      <h1 class="reader-chapter-title">{chapterHeading}</h1>
+
       <div class="reader-text markdown">
         <slot />
       </div>
 
-      <div class="reader-end-nav">
+      <nav class="reader-end-nav" aria-label="Navigasi chapter">
         {prevUrl ? (
-          <a href={prevUrl} class="reader-end-btn">
+          <a href={prevUrl} class="reader-end-btn" rel="prev">
             <Icon name="arrow-left" size={16} /> Prev
           </a>
-        ) : <div class="reader-end-btn is-disabled" />}
-        
+        ) : (
+          <span class="reader-end-btn is-disabled" aria-hidden="true"></span>
+        )}
+
         {nextUrl ? (
-          <a href={nextUrl} class="reader-end-btn">
+          <a href={nextUrl} class="reader-end-btn reader-end-btn--next" rel="next">
             Next <Icon name="arrow-right" size={16} />
           </a>
-        ) : <div class="reader-end-btn is-disabled" />}
-      </div>
-    </div>
-  </main>
+        ) : (
+          <span class="reader-end-btn is-disabled" aria-hidden="true"></span>
+        )}
+      </nav>
 
-  <div class="reader-bottom-bar">
+      {!nextUrl && (
+        <p class="reader-latest">
+          Kamu sudah sampai chapter terbaru. <a href={tocUrl}>Kembali ke daftar chapter</a>
+        </p>
+      )}
+    </div>
+  </article>
+
+  <nav class="reader-bottom-bar" aria-label="Navigasi chapter">
     <a href={tocUrl} class="reader-bar-btn">
       <Icon name="list" size={20} />
       <span>Daftar</span>
     </a>
-    
+
     {prevUrl ? (
-      <a href={prevUrl} class="reader-bar-btn">
+      <a href={prevUrl} class="reader-bar-btn" rel="prev">
         <Icon name="arrow-left" size={20} />
         <span>Prev</span>
       </a>
-    ) : <div class="reader-bar-btn is-disabled" />}
+    ) : (
+      <span class="reader-bar-btn is-disabled" aria-hidden="true"></span>
+    )}
 
     {nextUrl ? (
-      <a href={nextUrl} class="reader-bar-btn">
+      <a href={nextUrl} class="reader-bar-btn" rel="next">
         <Icon name="arrow-right" size={20} />
         <span>Next</span>
       </a>
-    ) : <div class="reader-bar-btn is-disabled" />}
-  </div>
+    ) : (
+      <span class="reader-bar-btn is-disabled" aria-hidden="true"></span>
+    )}
+  </nav>
 </div>
 
-<style>
-  .reader-wrapper { display: flex; flex-direction: column; min-height: 100vh; background: var(--bg-base); }
-  
-  .reader-header {
-    position: sticky; top: 0; z-index: var(--z-header);
-    display: flex; align-items: center; gap: var(--s-3);
-    height: 3.5rem; padding-inline: var(--pad-x);
-    background: hsla(30, 3%, 5%, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--border);
-  }
-  .reader-header__back { display: inline-flex; align-items: center; justify-content: center; width: 2rem; height: 2rem; color: var(--text-inverted); background: var(--bg-surface); border-radius: var(--r-full); }
-  .reader-header__title { font-size: var(--fs-sm); font-weight: var(--fw-semibold); color: var(--text-inverted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
-  .reader-header__spacer { width: 2rem; }
+<script>
+  type Theme = 'dark' | 'sepia' | 'light';
+  type Font = 'serif' | 'sans';
 
-  .reader-content { flex: 1; padding-block: var(--s-6) var(--s-16); }
-  .reader-content__inner { max-width: 100%; margin-inline: auto; padding-inline: var(--pad-x); }
-  .reader-chapter-title { margin: 0 0 var(--s-6); font-size: var(--fs-xl); font-weight: var(--fw-bold); color: var(--text-primary); line-height: var(--lh-tight); text-align: center; }
+  interface ReaderSettings {
+    theme: Theme;
+    font: Font;
+    size: number;
+    spacing: number;
+  }
+
+  const SETTINGS_KEY = 'yukionovel:reader';
+  const SIZE_MIN = 14;
+  const SIZE_MAX = 28;
+  const SPACINGS = [1.6, 1.8, 2];
+  const DEFAULTS: ReaderSettings = { theme: 'dark', font: 'serif', size: 18, spacing: 1.8 };
+
+  function clamp(n: number, min: number, max: number): number {
+    return Math.min(max, Math.max(min, n));
+  }
+
+  function loadSettings(): ReaderSettings {
+    try {
+      const raw = JSON.parse(localStorage.getItem(SETTINGS_KEY) ?? '{}') as Partial<ReaderSettings> | null;
+      if (!raw) return { ...DEFAULTS };
+      return {
+        theme: raw.theme === 'light' || raw.theme === 'sepia' ? raw.theme : 'dark',
+        font: raw.font === 'sans' ? 'sans' : 'serif',
+        size: typeof raw.size === 'number' ? clamp(Math.round(raw.size), SIZE_MIN, SIZE_MAX) : DEFAULTS.size,
+        spacing: typeof raw.spacing === 'number' && SPACINGS.includes(raw.spacing) ? raw.spacing : DEFAULTS.spacing,
+      };
+    } catch {
+      return { ...DEFAULTS };
+    }
+  }
+
+  function saveSettings(s: ReaderSettings): void {
+    try {
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(s));
+    } catch {}
+  }
+
+  function initReader(root: HTMLElement): void {
+    const slug = root.dataset.slug ?? '';
+    const chapter = Number(root.dataset.chapter);
+    const prevUrl = root.dataset.prev;
+    const nextUrl = root.dataset.next;
+    const lastKey = `yukionovel:last:${slug}`;
+
+    const html = document.documentElement;
+    const progress = root.querySelector<HTMLElement>('[data-progress]');
+    const panel = root.querySelector<HTMLElement>('[data-panel]');
+    const toggle = root.querySelector<HTMLButtonElement>('[data-settings-toggle]');
+    const sizeLabel = root.querySelector<HTMLElement>('[data-size-label]');
+
+    const settings = loadSettings();
+
+    function applySettings(): void {
+      if (settings.theme === 'dark') delete html.dataset.readerTheme;
+      else html.dataset.readerTheme = settings.theme;
+
+      if (settings.font === 'sans') html.dataset.readerFont = 'sans';
+      else delete html.dataset.readerFont;
+
+      html.style.setProperty('--reader-size', `${settings.size / 16}rem`);
+      html.style.setProperty('--reader-lh', String(settings.spacing));
+
+      if (sizeLabel) sizeLabel.textContent = String(settings.size);
+
+      root.querySelectorAll<HTMLButtonElement>('[data-set]').forEach((btn) => {
+        const key = btn.dataset.set as keyof ReaderSettings | undefined;
+        if (!key) return;
+        btn.setAttribute('aria-pressed', String(String(settings[key]) === btn.dataset.value));
+      });
+    }
+
+    function commit(): void {
+      applySettings();
+      saveSettings(settings);
+    }
+
+    applySettings();
+
+    /* ---------- Panel ---------- */
+    function setPanel(open: boolean): void {
+      if (!panel || !toggle) return;
+      panel.hidden = !open;
+      toggle.setAttribute('aria-expanded', String(open));
+      if (open) root.dataset.chrome = 'show';
+    }
+
+    toggle?.addEventListener('click', () => setPanel(panel?.hidden ?? false));
+
+    panel?.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+
+      const setBtn = target.closest<HTMLButtonElement>('[data-set]');
+      if (setBtn) {
+        const key = setBtn.dataset.set;
+        const value = setBtn.dataset.value ?? '';
+
+        if (key === 'theme' && (value === 'dark' || value === 'sepia' || value === 'light')) {
+          settings.theme = value;
+        } else if (key === 'font' && (value === 'serif' || value === 'sans')) {
+          settings.font = value;
+        } else if (key === 'spacing') {
+          const n = Number(value);
+          if (SPACINGS.includes(n)) settings.spacing = n;
+        }
+        commit();
+        return;
+      }
+
+      const stepBtn = target.closest<HTMLButtonElement>('[data-size-step]');
+      if (stepBtn) {
+        const step = Number(stepBtn.dataset.sizeStep);
+        if (Number.isFinite(step)) {
+          settings.size = clamp(settings.size + step, SIZE_MIN, SIZE_MAX);
+          commit();
+        }
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!panel || panel.hidden) return;
+      const target = e.target as Node;
+      if (panel.contains(target) || toggle?.contains(target)) return;
+      setPanel(false);
+    });
+
+    /* ---------- Last read ---------- */
+    function readLast(): { n: number; r: number } | null {
+      try {
+        const raw = localStorage.getItem(lastKey);
+        if (!raw) return null;
+        const p = JSON.parse(raw) as { n?: unknown; r?: unknown } | null;
+        if (p && typeof p.n === 'number' && typeof p.r === 'number') {
+          return { n: p.n, r: p.r };
+        }
+      } catch {}
+      return null;
+    }
+
+    function writeLast(r: number): void {
+      try {
+        localStorage.setItem(lastKey, JSON.stringify({ n: chapter, r: Number(r.toFixed(4)) }));
+      } catch {}
+    }
+
+    const saved = readLast();
+    if (!saved || saved.n !== chapter) writeLast(0);
+
+    function restorePosition(): void {
+      if (!saved || saved.n !== chapter) return;
+      if (location.hash || window.scrollY > 50) return;
+      if (saved.r < 0.02 || saved.r > 0.97) return;
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      if (max > 0) window.scrollTo(0, max * saved.r);
+    }
+
+    if (document.readyState === 'complete') restorePosition();
+    else window.addEventListener('load', restorePosition, { once: true });
+
+    /* ---------- Scroll: progress, hide chrome, save position ---------- */
+    let lastY = window.scrollY;
+    let ticking = false;
+    let saveTimer: number | null = null;
+
+    function onScroll(): void {
+      if (ticking) return;
+      ticking = true;
+
+      requestAnimationFrame(() => {
+        ticking = false;
+
+        const y = window.scrollY;
+        const max = document.documentElement.scrollHeight - window.innerHeight;
+        const ratio = max > 0 ? clamp(y / max, 0, 1) : 1;
+
+        if (progress) progress.style.transform = `scaleX(${ratio})`;
+
+        const delta = y - lastY;
+        const panelOpen = panel ? !panel.hidden : false;
+
+        if (y < 80 || ratio > 0.98 || delta < -6 || panelOpen) {
+          root.dataset.chrome = 'show';
+        } else if (delta > 6) {
+          root.dataset.chrome = 'hide';
+        }
+        lastY = y;
+
+        if (saveTimer !== null) window.clearTimeout(saveTimer);
+        saveTimer = window.setTimeout(() => writeLast(ratio >= 0.98 ? 0 : ratio), 400);
+      });
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
+    /* ---------- Keyboard ---------- */
+    document.addEventListener('keydown', (e) => {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+
+      const t = e.target as HTMLElement | null;
+      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+
+      if (e.key === 'Escape') {
+        setPanel(false);
+      } else if (e.key === 'ArrowLeft' && prevUrl) {
+        location.assign(prevUrl);
+      } else if (e.key === 'ArrowRight' && nextUrl) {
+        location.assign(nextUrl);
+      }
+    });
+  }
+
+  const readerRoot = document.querySelector<HTMLElement>('[data-reader]');
+  if (readerRoot) initReader(readerRoot);
+</script>
+
+<style is:global>
+  :root {
+    --reader-bg: var(--bg-base);
+    --reader-bar: hsla(30, 3%, 5%, 0.92);
+    --reader-text: var(--text-primary);
+    --reader-muted: var(--text-muted);
+    --reader-border: var(--border);
+    --reader-surface: var(--bg-elevated);
+    --reader-size: 1.125rem;
+    --reader-lh: 1.8;
+    --reader-font: Georgia, 'Times New Roman', serif;
+  }
+
+  :root[data-reader-theme='sepia'] {
+    --reader-bg: #f4ecd8;
+    --reader-bar: rgba(244, 236, 216, 0.94);
+    --reader-text: #433422;
+    --reader-muted: #7a6a55;
+    --reader-border: #dccfb4;
+    --reader-surface: #ebe1c8;
+  }
+
+  :root[data-reader-theme='light'] {
+    --reader-bg: #fafaf9;
+    --reader-bar: rgba(250, 250, 249, 0.94);
+    --reader-text: #1c1b1a;
+    --reader-muted: #6b6966;
+    --reader-border: #e2e0dd;
+    --reader-surface: #f0efed;
+  }
+
+  :root[data-reader-font='sans'] {
+    --reader-font: var(--font-sans);
+  }
+
+  body:has(.reader-wrapper) {
+    background: var(--reader-bg);
+  }
+</style>
+
+<style>
+  .reader-wrapper {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background: var(--reader-bg);
+    color: var(--reader-text);
+  }
+
+  /* ---------- Header ---------- */
+  .reader-header {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-header);
+    display: flex;
+    align-items: center;
+    gap: var(--s-3);
+    height: 3.5rem;
+    padding-inline: var(--pad-x);
+    background: var(--reader-bar);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--reader-border);
+    transition: transform var(--t-base);
+  }
+
+  .reader-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2.25rem;
+    height: 2.25rem;
+    background: var(--reader-surface);
+    color: var(--reader-text);
+    border: none;
+    border-radius: var(--r-full);
+    text-decoration: none;
+    cursor: pointer;
+    transition: color var(--t-fast);
+  }
+
+  .reader-btn:hover {
+    color: var(--accent);
+  }
+
+  .reader-btn--text {
+    font-family: Georgia, serif;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-bold);
+  }
+
+  .reader-header__title {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    line-height: 1.25;
+  }
+
+  .reader-header__novel {
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-semibold);
+    color: var(--reader-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .reader-header__chapter {
+    font-size: var(--fs-xs);
+    color: var(--reader-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .reader-progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    pointer-events: none;
+  }
+
+  /* ---------- Settings panel ---------- */
+  .reader-panel {
+    position: fixed;
+    top: 3.75rem;
+    right: var(--pad-x);
+    left: var(--pad-x);
+    z-index: var(--z-overlay);
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-4);
+    max-width: 22rem;
+    margin-left: auto;
+    padding: var(--s-4);
+    background: var(--reader-surface);
+    color: var(--reader-text);
+    border: 1px solid var(--reader-border);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .reader-panel[hidden] {
+    display: none;
+  }
+
+  .reader-panel__row {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-2);
+  }
+
+  .reader-panel__label {
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--reader-muted);
+  }
+
+  .seg {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    border: 1px solid var(--reader-border);
+    border-radius: var(--r-sm);
+    overflow: hidden;
+  }
+
+  .seg button {
+    padding: var(--s-2) var(--s-3);
+    background: transparent;
+    color: var(--reader-text);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    text-align: center;
+    cursor: pointer;
+    transition: background var(--t-fast), color var(--t-fast);
+  }
+
+  .seg button + button,
+  .seg output + button {
+    border-left: 1px solid var(--reader-border);
+  }
+
+  .seg button:hover {
+    background: var(--reader-bg);
+  }
+
+  .seg button[aria-pressed='true'] {
+    background: var(--accent);
+    color: var(--accent-text);
+  }
+
+  .seg--size {
+    grid-auto-columns: 1fr 1.5fr 1fr;
+  }
+
+  .seg--size output {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--fs-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--reader-text);
+  }
+
+  /* ---------- Content ---------- */
+  .reader-content {
+    flex: 1;
+    padding-block: var(--s-6) calc(var(--s-16) + env(safe-area-inset-bottom, 0px));
+  }
+
+  .reader-content__inner {
+    max-width: 100%;
+    margin-inline: auto;
+    padding-inline: var(--pad-x);
+  }
+
+  .reader-novel-link {
+    display: block;
+    margin-bottom: var(--s-2);
+    text-align: center;
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--reader-muted);
+    text-decoration: none;
+    transition: color var(--t-fast);
+  }
+
+  .reader-novel-link:hover {
+    color: var(--accent);
+  }
+
+  .reader-chapter-title {
+    margin: 0 0 var(--s-8);
+    font-size: var(--fs-xl);
+    font-weight: var(--fw-bold);
+    line-height: var(--lh-tight);
+    text-align: center;
+    color: var(--reader-text);
+    text-wrap: balance;
+  }
 
   .reader-text {
-    font-family: Georgia, 'Times New Roman', serif; 
-    font-size: 1.125rem; line-height: 1.8; color: var(--text-primary);
+    font-family: var(--reader-font);
+    font-size: var(--reader-size);
+    line-height: var(--reader-lh);
+    color: var(--reader-text);
+    hyphens: auto;
+    overflow-wrap: break-word;
   }
-  .reader-text :global(p) { margin-bottom: var(--s-4); text-align: justify; text-justify: inter-word; }
-  .reader-text :global(p:first-of-type) { text-indent: 0; }
-  .reader-text :global(em) { font-style: italic; }
-  .reader-text :global(strong) { font-weight: bold; color: var(--text-primary); }
 
-  .reader-end-nav { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); margin-top: var(--s-8); padding-top: var(--s-6); border-top: 1px solid var(--border); }
-  .reader-end-btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2); padding: var(--s-3) var(--s-4); background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--r-sm); color: var(--text-primary); text-decoration: none; font-size: var(--fs-sm); font-weight: var(--fw-medium); text-align: center; }
-  .reader-end-btn.is-disabled { opacity: 0.3; pointer-events: none; }
+  .reader-text :global(p) {
+    margin: 0 0 1.1em;
+  }
 
+  .reader-text :global(em) {
+    font-style: italic;
+  }
+
+  .reader-text :global(strong) {
+    font-weight: 700;
+    color: inherit;
+  }
+
+  .reader-text :global(h1),
+  .reader-text :global(h2),
+  .reader-text :global(h3) {
+    color: var(--reader-text);
+    font-size: 1.2em;
+    margin: 1.6em 0 0.6em;
+  }
+
+  .reader-text :global(blockquote) {
+    background: transparent;
+    color: var(--reader-text);
+    border-left: 3px solid var(--accent);
+  }
+
+  .reader-text :global(hr) {
+    height: auto;
+    margin: 2em 0;
+    background: none;
+    text-align: center;
+  }
+
+  .reader-text :global(hr)::after {
+    content: '*  *  *';
+    letter-spacing: 0.4em;
+    color: var(--reader-muted);
+  }
+
+  .reader-text :global(img) {
+    margin-inline: auto;
+  }
+
+  /* ---------- End navigation ---------- */
+  .reader-end-nav {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--s-3);
+    margin-top: var(--s-8);
+    padding-top: var(--s-6);
+    border-top: 1px solid var(--reader-border);
+  }
+
+  .reader-end-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s-2);
+    padding: var(--s-3) var(--s-4);
+    background: var(--reader-surface);
+    border: 1px solid var(--reader-border);
+    border-radius: var(--r-sm);
+    color: var(--reader-text);
+    text-decoration: none;
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    text-align: center;
+    transition: border-color var(--t-fast), color var(--t-fast);
+  }
+
+  .reader-end-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .reader-end-btn--next {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-text);
+  }
+
+  .reader-end-btn--next:hover {
+    background: var(--accent-hover);
+    border-color: var(--accent-hover);
+    color: var(--accent-text);
+  }
+
+  .reader-end-btn.is-disabled {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  .reader-latest {
+    margin: var(--s-4) 0 0;
+    text-align: center;
+    font-size: var(--fs-sm);
+    color: var(--reader-muted);
+  }
+
+  .reader-latest a {
+    color: var(--accent);
+  }
+
+  /* ---------- Bottom bar (mobile) ---------- */
   .reader-bottom-bar {
-    position: fixed; bottom: 0; left: 0; right: 0; z-index: var(--z-header);
-    display: flex; align-items: center; justify-content: space-around;
-    background: hsla(30, 3%, 5%, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom, 0);
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: var(--z-header);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    background: var(--reader-bar);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-top: 1px solid var(--reader-border);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+    transition: transform var(--t-base);
   }
-  .reader-bar-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; flex: 1; padding: var(--s-3) 0; color: var(--text-secondary); text-decoration: none; font-size: 0.6875rem; font-weight: var(--fw-medium); transition: color var(--t-fast); }
-  .reader-bar-btn:hover, .reader-bar-btn:active { color: var(--accent); }
-  .reader-bar-btn.is-disabled { opacity: 0.3; pointer-events: none; }
+
+  .reader-bar-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    flex: 1;
+    padding: var(--s-3) 0;
+    color: var(--reader-muted);
+    text-decoration: none;
+    font-size: 0.6875rem;
+    font-weight: var(--fw-medium);
+    transition: color var(--t-fast);
+  }
+
+  .reader-bar-btn:hover,
+  .reader-bar-btn:active {
+    color: var(--accent);
+  }
+
+  .reader-bar-btn.is-disabled {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  /* ---------- Auto-hide chrome ---------- */
+  .reader-wrapper[data-chrome='hide'] .reader-header {
+    transform: translateY(-100%);
+  }
+
+  .reader-wrapper[data-chrome='hide'] .reader-bottom-bar {
+    transform: translateY(100%);
+  }
 
   @media (min-width: 50rem) {
-    .reader-bottom-bar { display: none; }
-    .reader-content__inner { max-width: 65ch; }
-    .reader-end-nav { display: flex; justify-content: space-between; }
-    .reader-end-btn { flex: 0 1 auto; min-width: 150px; }
+    .reader-bottom-bar {
+      display: none;
+    }
+
+    .reader-content {
+      padding-bottom: var(--s-16);
+    }
+
+    .reader-content__inner {
+      max-width: 65ch;
+    }
+
+    .reader-end-nav {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .reader-end-btn {
+      flex: 0 1 auto;
+      min-width: 9.5rem;
+    }
   }
 </style>
