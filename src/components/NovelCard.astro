@@ -16,33 +16,25 @@ interface CardNovel {
 }
 
 interface Props {
-  mode?: 'grid' | 'template';
-  novel?: CardNovel;
+  novel: CardNovel;
   rich?: boolean;
 }
 
-const { mode = 'grid', novel, rich = true } = Astro.props;
-const isTemplate = mode === 'template';
+const { novel, rich = true } = Astro.props;
 
-if (!isTemplate && !novel) {
-  throw new Error('[NovelCard] Prop "novel" wajib diisi.');
-}
+const id = novel.id;
+const data = novel.data;
 
-const id = novel?.id ?? '';
-const data = novel?.data;
+const variant = STATUS_VARIANT[data.status as NovelStatus] ?? 'default';
 
-const variant = data
-  ? STATUS_VARIANT[data.status as NovelStatus] ?? 'default'
-  : 'default';
-
-const chapters = data?.chapters ?? [];
+const chapters = data.chapters ?? [];
 const totalChapters = chapters.length;
 const firstChapter = totalChapters > 0
   ? Math.min(...chapters.map((c) => c.number))
   : 1;
 
 const chapterLabel = totalChapters > 0 ? `${totalChapters} Chapter` : null;
-const authorLabel = data?.author && data.author !== 'Unknown' ? data.author : null;
+const authorLabel = data.author && data.author !== 'Unknown' ? data.author : null;
 
 function plainExcerpt(input: string | undefined, maxLen = 110): string {
   if (!input) return '';
@@ -57,94 +49,67 @@ function plainExcerpt(input: string | undefined, maxLen = 110): string {
     : cleaned.slice(0, maxLen).trimEnd() + '…';
 }
 
-const excerpt = plainExcerpt(data?.synopsis);
+const excerpt = plainExcerpt(data.synopsis);
 ---
 
-{isTemplate && (
-  <template id="novel-card-template">
-    <article class="novel-card novel-card-rich">
-      <a class="novel-card__link" data-card-link>
-        <div class="cover">
-          <div class="cover-placeholder is-loading" aria-hidden="true"></div>
-          <img width="300" height="450" loading="lazy" decoding="async" data-cover-img />
-          <div class="status-overlay">
-            <span class="card-status" data-card-status></span>
-          </div>
-        </div>
-      </a>
-      <div class="info">
-        <h3 data-card-title-info></h3>
-        <p class="author" data-card-author hidden></p>
-      </div>
-    </article>
-  </template>
-)}
-
-{!isTemplate && (
-  <article
-    class:list={[
-      'novel-card',
-      { 'novel-card-rich': rich },
-    ]}
+<article class:list={['novel-card', { 'novel-card-rich': rich }]}>
+  <a
+    href={URLS.novel(id)}
+    class="novel-card__link"
+    aria-label={data.title}
   >
-    <a
-      href={URLS.novel(id)}
-      class="novel-card__link"
-      aria-label={data!.title}
-    >
-      <div class="cover">
-        <div class="cover-placeholder is-loading" aria-hidden="true"></div>
-        <img
-          src={data!.cover}
-          alt={`Cover ${data!.title}`}
-          width="300"
-          height="450"
-          loading="lazy"
-          decoding="async"
-          data-cover-img
-        />
-        <div class="status-overlay">
-          <Badge variant={variant} size="sm">{data!.status}</Badge>
-        </div>
+    <div class="cover">
+      <div class="cover-placeholder is-loading" aria-hidden="true"></div>
+      <img
+        src={data.cover}
+        alt={`Cover ${data.title}`}
+        width="300"
+        height="450"
+        loading="lazy"
+        decoding="async"
+        data-cover-img
+      />
+      <div class="status-overlay">
+        <Badge variant={variant} size="sm">{data.status}</Badge>
       </div>
-    </a>
-
-    {rich && (
-      <div class="preview" aria-hidden="true">
-        <div class="preview__inner">
-          <h4 class="preview__title">{data!.title}</h4>
-          {authorLabel && (
-            <ul class="preview__meta">
-              <li>{authorLabel}</li>
-            </ul>
-          )}
-          {excerpt && <p class="preview__excerpt">{excerpt}</p>}
-          <div class="preview__actions">
-            {totalChapters > 0 ? (
-              <a
-                href={URLS.novelChapter(id, firstChapter)}
-                class="preview__btn preview__btn--read"
-                aria-label={`Baca ${data!.title}`}
-              >
-                <Icon name="book" size={16} />
-              </a>
-            ) : (
-              <span class="preview__btn is-disabled" aria-disabled="true">
-                <Icon name="book" size={16} />
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-    )}
-
-    <div class="info">
-      <h3 set:html={data!.title} />
-      {authorLabel && <p class="author">{authorLabel}</p>}
-      {chapterLabel && <span class="chapters">{chapterLabel}</span>}
     </div>
-  </article>
-)}
+  </a>
+
+  {rich && (
+    <div class="preview" aria-hidden="true">
+      <div class="preview__inner">
+        <h4 class="preview__title">{data.title}</h4>
+        {authorLabel && (
+          <ul class="preview__meta">
+            <li>{authorLabel}</li>
+          </ul>
+        )}
+        {excerpt && <p class="preview__excerpt">{excerpt}</p>}
+        <div class="preview__actions">
+          {totalChapters > 0 ? (
+            <a
+              href={URLS.novelChapter(id, firstChapter)}
+              class="preview__btn preview__btn--read"
+              aria-label={`Baca ${data.title}`}
+            >
+              <Icon name="book" size={16} />
+            </a>
+          ) : (
+            <span class="preview__btn is-disabled" aria-disabled="true">
+              <Icon name="book" size={16} />
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  )}
+
+  <div class="info">
+    <h3>{data.title}</h3>
+    {authorLabel && <p class="author">{authorLabel}</p>}
+    {chapterLabel && <span class="chapters">{chapterLabel}</span>}
+  </div>
+</article>
 
 <script>
   (function () {
