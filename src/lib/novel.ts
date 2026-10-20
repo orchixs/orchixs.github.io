@@ -1,6 +1,15 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
 
-export type NovelEntry = CollectionEntry<'novel'>;
+export type SeriesEntry = CollectionEntry<'series'>;
+export type ChapterEntry = CollectionEntry<'chapters'>;
+
+export interface ChapterInfo {
+  seriesSlug: string;
+  number: number;
+  title: string;
+  publishedAt: Date;
+  entry: ChapterEntry;
+}
 
 export interface SeriesInfo {
   slug: string;
@@ -11,103 +20,90 @@ export interface SeriesInfo {
   synopsis: string;
   genres: string[];
   year: number | null;
+  chapters: ChapterInfo[];
   totalChapters: number;
   latestChapter: number;
   updatedAt: Date;
-  entry: NovelEntry;
 }
 
-export interface ChapterInfo {
-  seriesSlug: string;
-  number: number;
-  title: string;
-  publishedAt: Date | null;
-  entry: NovelEntry;
-}
+let cache: Promise<SeriesInfo[]> | null = null;
 
-function parseSlug(id: string): string {
-  return id.split('/')[0]!;
-}
-
-export async function getAllSeries(): Promise<SeriesInfo[]> {
+async function build(): Promise<SeriesInfo[]> {
   const [seriesEntries, chapterEntries] = await Promise.all([
-    getCollection('novel', ({ data }) => data.type === 'series'),
-    getCollection('novel', ({ data }) => data.type === 'chapter'),
+    getCollection('series', ({ data }) => !data.draft),
+    getCollection('chapters', ({ data }) => !data.draft),
   ]);
 
-  const chaptersBySlug = new Map<string, ChapterInfo[]>();
-  for (const ch of chapterEntries) {
-    const slug = parseSlug(ch.id);
-    const list = chaptersBySlug.get(slug) ?? [];
+  const bySlug = new Map<string, ChapterInfo[]>();
+  for (const e of chapterEntries) {
+    const slug = e.id.split('/')[0]!;
+    const list = bySlug.get(slug) ?? [];
     list.push({
       seriesSlug: slug,
-      number: ch.data.chapter ?? 0,
-      title: ch.data.chapterTitle ?? `Chapter ${ch.data.chapter ?? 0}`,
-      publishedAt: ch.data.publishedAt ?? null,
-      entry: ch,
+      number: e.data.chapter,
+      title: e.data.chapterTitle ?? `Chapter ${e.data.chapter}`,
+      publishedAt: e.data.publishedAt,
+      entry: e,
     });
-    chaptersBySlug.set(slug, list);
+    bySlug.set(slug, list);
   }
 
-  return seriesEntries.map((entry) => {
-    const slug = parseSlug(entry.id);
-    const chapters = (chaptersBySlug.get(slug) ?? []).sort((a, b) => a.number - b.number);
-    const latest = chapters.length > 0 ? chapters[chapters.length - 1]! : null;
+  return seriesEntries.map((s) => {
+    const slug = s.id.split('/')[0]!;
+    const chapters = (bySlug.get(slug) ?? []).sort((a, b) => a.number - b.number);
 
+    const seen = new Set<number>();
+    for (const c of chapters) {
+      if (seen.has(c.number)) {
+        throw new Error(`[novel] Chapter ${c.number} duplikat di "${slug}"`);
+      }
+      seen.add(c.number);
+    }
+
+    const latest = chapters.at(-1);
     return {
       slug,
-      title: entry.data.title ?? slug,
-      author: entry.data.author ?? 'Unknown',
-      cover: entry.data.cover ?? '',
-      status: entry.data.status ?? 'Ongoing',
-      synopsis: entry.data.synopsis ?? '',
-      genres: entry.data.genres ?? [],
-      year: entry.data.year ?? null,
+      title: s.data.title,
+      author: s.data.author,
+      cover: s.data.cover,
+      status: s.data.status,
+      synopsis: s.data.synopsis,
+      genres: s.data.genres,
+      year: s.data.year ?? null,
+      chapters,
       totalChapters: chapters.length,
       latestChapter: latest?.number ?? 0,
       updatedAt: latest?.publishedAt ?? new Date(0),
-      entry,
     };
   });
 }
 
-export async function getSeriesBySlug(slug: string): Promise<SeriesInfo | null> {
-  const all = await getAllSeries();
-  return all.find((s) => s.slug === slug) ?? null;
+export function getAllSeries(): Promise<SeriesInfo[]> {
+  return (cache ??= build());
 }
 
-export async function getChaptersBySeries(slug: string): Promise<ChapterInfo[]> {
-  const chapters = await getCollection('novel', ({ data }) => data.type === 'chapter');
-  const list: ChapterInfo[] = [];
+export async function getSeriesBySlug(slug: string) {
+  return (await getAllSeries()).find((s) => s.slug === slug) ?? null;
+}
 
-  for (const ch of chapters) {
-    if (parseSlug(ch.id) !== slug) continue;
-    list.push({
-      seriesSlug: slug,
-      number: ch.data.chapter ?? 0,
-      title: ch.data.chapterTitle ?? `Chapter ${ch.data.chapter ?? 0}`,
-      publishedAt: ch.data.publishedAt ?? null,
-      entry: ch,
-    });
+export async function getChaptersBySeries(slug: string) {
+  return (await getSeriesBySlug(slug))?.chapters ?? [];
+}
+
+export function getAdjacent(chapters: ChapterInfo[], current: number) {
+  const i = chapters.findIndex((c) => c.number === current);
+  return {
+    prev: i > 0 ? chapters[i - 1]! : null,
+    next: i >= 0 && i < chapters.length - 1 ? chapters[i + 1]! : null,
+  };
+}
+
+export async function getGenres() {
+  const counts = new Map<string, number>();
+  for (const s of await getAllSeries()) {
+    for (const g of s.genres) counts.set(g, (counts.get(g) ?? 0) + 1);
   }
-
-  return list.sort((a, b) => a.number - b.number);
-}
-
-export async function getChapterEntry(
-  seriesSlug: string,
-  chapterNum: number,
-): Promise<ChapterInfo | null> {
-  const list = await getChaptersBySeries(seriesSlug);
-  return list.find((c) => c.number === chapterNum) ?? null;
-}
-
-export function prevChapter(list: ChapterInfo[], current: number): ChapterInfo | null {
-  const idx = list.findIndex((c) => c.number === current);
-  return idx > 0 ? list[idx - 1]! : null;
-}
-
-export function nextChapter(list: ChapterInfo[], current: number): ChapterInfo | null {
-  const idx = list.findIndex((c) => c.number === current);
-  return idx >= 0 && idx < list.length - 1 ? list[idx + 1]! : null;
+  return [...counts]
+    .map(([slug, count]) => ({ slug, count }))
+    .sort((a, b) => b.count - a.count || a.slug.localeCompare(b.slug));
 }
