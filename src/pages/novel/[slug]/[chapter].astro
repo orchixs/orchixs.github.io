@@ -1,11 +1,13 @@
 ---
+import { render } from 'astro:content';
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import NovelReader from '~/components/NovelReader.astro';
-import { render } from 'astro:content';
+import { URLS } from '~/constants';
 import { getAllSeries, getAdjacent } from '~/lib/novel';
 
 export async function getStaticPaths() {
   const all = await getAllSeries();
+
   return all.flatMap((series) =>
     series.chapters.map((chapter) => ({
       params: { slug: series.slug, chapter: String(chapter.number) },
@@ -17,19 +19,27 @@ export async function getStaticPaths() {
 const { series, chapter } = Astro.props;
 const { Content } = await render(chapter.entry);
 const { prev, next } = getAdjacent(series.chapters, chapter.number);
+
+const custom = chapter.entry.data.chapterTitle;
+const heading = custom
+  ? `Chapter ${chapter.number}: ${custom}`
+  : `Chapter ${chapter.number}`;
 ---
 
 <BaseLayout
-  title={`${series.title} — ${chapter.title}`}
-  description={`Baca ${series.title} ${chapter.title} subtitle Indonesia.`}
+  title={`${series.title} — ${heading}`}
+  description={`Baca ${series.title} ${heading} bahasa Indonesia.`}
   noindex={true}
+  minimal={true}
 >
   <NovelReader
+    seriesSlug={series.slug}
+    chapterNumber={chapter.number}
     novelTitle={series.title}
-    chapterTitle={chapter.title}
+    chapterHeading={heading}
+    tocUrl={URLS.novel(series.slug)}
     prevUrl={prev ? URLS.novelChapter(series.slug, prev.number) : undefined}
     nextUrl={next ? URLS.novelChapter(series.slug, next.number) : undefined}
-    tocUrl={URLS.novel(series.slug)}
   >
     <Content />
   </NovelReader>
