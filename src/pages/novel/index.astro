@@ -2,44 +2,126 @@
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import Page from '~/components/Page.astro';
 import Hero from '~/components/Hero.astro';
-import NovelCard from '~/components/NovelCard.astro';
+import NovelGrid from '~/components/NovelGrid.astro';
 import { getAllSeries } from '~/lib/novel';
+import { NOVEL_STATUSES } from '~/constants';
 
 const allSeries = await getAllSeries();
 const sorted = [...allSeries].sort((a, b) => a.title.localeCompare(b.title, 'id-ID'));
 ---
 
-<BaseLayout title="Semua Novel" description="Jelajahi semua light novel terjemahan Indonesia." canonical="/novel/">
+<BaseLayout
+  title="Semua Novel"
+  description="Jelajahi semua light novel dan web novel terjemahan Indonesia."
+  canonical="/novel/"
+>
   <Page class="wrapper">
     <Hero title="Semua Novel" />
 
     {sorted.length > 0 ? (
-      <div class="novel-grid">
-        {sorted.map((s) => (
-          <NovelCard
-            novel={{
-              id: s.slug,
-              data: {
-                title: s.title,
-                cover: s.cover,
-                status: s.status,
-                author: s.author,
-                synopsis: s.synopsis,
-                chapters: Array.from({ length: s.totalChapters }, (_, i) => ({ number: i + 1 })),
-              },
-            }}
+      <>
+        <div class="toolbar" data-toolbar>
+          <input
+            type="search"
+            class="toolbar__search"
+            placeholder="Cari judul atau penulis…"
+            aria-label="Cari novel"
+            data-search
           />
-        ))}
-      </div>
+          <select class="toolbar__filter" data-status-filter aria-label="Filter status">
+            <option value="">Semua status</option>
+            {NOVEL_STATUSES.map((s) => <option value={s}>{s}</option>)}
+          </select>
+        </div>
+
+        <div data-novel-results>
+          <NovelGrid series={sorted} />
+        </div>
+
+        <p class="empty" data-no-results hidden role="status">
+          Tidak ada novel yang cocok dengan pencarian.
+        </p>
+      </>
     ) : (
       <p class="empty">Belum ada novel.</p>
     )}
   </Page>
 </BaseLayout>
 
+<script>
+  const toolbar = document.querySelector<HTMLElement>('[data-toolbar]');
+  const search = toolbar?.querySelector<HTMLInputElement>('[data-search]');
+  const statusFilter = toolbar?.querySelector<HTMLSelectElement>('[data-status-filter]');
+  const results = document.querySelector<HTMLElement>('[data-novel-results]');
+  const noResults = document.querySelector<HTMLElement>('[data-no-results]');
+
+  if (search && statusFilter && results) {
+    const cards = Array.from(results.querySelectorAll<HTMLElement>('.novel-card'));
+
+    const apply = (): void => {
+      const q = search.value.trim().toLowerCase();
+      const status = statusFilter.value;
+      let visible = 0;
+
+      cards.forEach((card) => {
+        const title = card.querySelector('.info h3')?.textContent?.toLowerCase() ?? '';
+        const author = card.querySelector('.info .author')?.textContent?.toLowerCase() ?? '';
+        const s = card.querySelector('.status-overlay .badge')?.textContent?.trim() ?? '';
+        const show = (!q || title.includes(q) || author.includes(q)) && (!status || s === status);
+        card.style.display = show ? '' : 'none';
+        if (show) visible += 1;
+      });
+
+      if (noResults) noResults.hidden = visible > 0;
+    };
+
+    search.addEventListener('input', apply);
+    statusFilter.addEventListener('change', apply);
+  }
+</script>
+
 <style>
-  .wrapper { padding-block: var(--s-6) var(--s-12); gap: var(--s-6); }
-  .novel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); }
-  @media (min-width: 50rem) { .novel-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--s-4); } }
-  .empty { padding: var(--s-12) 0; text-align: center; color: var(--text-muted); font-size: var(--fs-sm); }
+  .wrapper {
+    padding-block: var(--s-6) var(--s-12);
+    gap: var(--s-6);
+  }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+  }
+
+  .toolbar__search,
+  .toolbar__filter {
+    padding: var(--s-2) var(--s-3);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    font-size: var(--fs-sm);
+    font-family: inherit;
+  }
+
+  .toolbar__search {
+    flex: 1 1 16rem;
+    min-width: 0;
+  }
+
+  .toolbar__search:focus,
+  .toolbar__filter:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .toolbar__filter {
+    cursor: pointer;
+  }
+
+  .empty {
+    padding: var(--s-12) 0;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+    margin: 0;
+  }
 </style>
