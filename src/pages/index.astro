@@ -2,7 +2,7 @@
 import BaseLayout from '~/layouts/BaseLayout.astro';
 import Page from '~/components/Page.astro';
 import SectionLabel from '~/components/SectionLabel.astro';
-import NovelCard from '~/components/NovelCard.astro';
+import NovelGrid from '~/components/NovelGrid.astro';
 import Hero from '~/components/Hero.astro';
 import LinkButton from '~/user-components/LinkButton.astro';
 import { SITE } from '~/constants';
@@ -27,23 +27,7 @@ const latest = [...allSeries]
             Lihat Semua
           </LinkButton>
         </header>
-        <div class="novel-grid">
-          {latest.map((s) => (
-            <NovelCard
-              novel={{
-                id: s.slug,
-                data: {
-                  title: s.title,
-                  cover: s.cover,
-                  status: s.status,
-                  author: s.author,
-                  synopsis: s.synopsis,
-                  chapters: Array.from({ length: s.totalChapters }, (_, i) => ({ number: i + 1 })),
-                },
-              }}
-            />
-          ))}
-        </div>
+        <NovelGrid series={latest} />
       </section>
     ) : (
       <div class="empty">
@@ -54,10 +38,29 @@ const latest = [...allSeries]
 </BaseLayout>
 
 <style>
-  .wrapper { padding-block: var(--s-6) var(--s-12); gap: var(--s-8); }
-  .section { display: flex; flex-direction: column; gap: var(--s-4); }
-  .section__header { display: flex; align-items: center; justify-content: space-between; gap: var(--s-3); flex-wrap: wrap; }
-  .novel-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--s-3); }
-  @media (min-width: 50rem) { .novel-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: var(--s-4); } }
-  .empty { padding: var(--s-12) 0; text-align: center; color: var(--text-muted); font-size: var(--fs-sm); }
+  .wrapper {
+    padding-block: var(--s-6) var(--s-12);
+    gap: var(--s-8);
+  }
+
+  .section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-4);
+  }
+
+  .section__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+    flex-wrap: wrap;
+  }
+
+  .empty {
+    padding: var(--s-12) 0;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+  }
 </style>
