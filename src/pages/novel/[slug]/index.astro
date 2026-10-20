@@ -1,0 +1,473 @@
+---
+import BaseLayout from '~/layouts/BaseLayout.astro';
+import Page from '~/components/Page.astro';
+import Breadcrumb from '~/components/Breadcrumb.astro';
+import SectionLabel from '~/components/SectionLabel.astro';
+import Badge from '~/user-components/Badge.astro';
+import LinkButton from '~/user-components/LinkButton.astro';
+import { STATUS_VARIANT, URLS, type NovelStatus } from '~/constants';
+import { getAllSeries, type ChapterInfo } from '~/lib/novel';
+import { formatDate, formatDateShort, genreLabel } from '~/lib/format';
+
+export async function getStaticPaths() {
+  const all = await getAllSeries();
+  return all.map((series) => ({
+    params: { slug: series.slug },
+    props: { series },
+  }));
+}
+
+const { series } = Astro.props;
+
+const first = series.chapters[0];
+const latest = series.chapters.at(-1);
+const newestFirst = [...series.chapters].reverse();
+const variant = STATUS_VARIANT[series.status as NovelStatus] ?? 'default';
+
+const plainSynopsis = series.synopsis.replace(/\s+/g, ' ').trim();
+const description = plainSynopsis
+  ? plainSynopsis.length > 155
+    ? `${plainSynopsis.slice(0, 155).trimEnd()}…`
+    : plainSynopsis
+  : `Baca ${series.title} bahasa Indonesia.`;
+
+function chapterName(c: ChapterInfo): string {
+  return c.title === `Chapter ${c.number}` ? '' : c.title;
+}
+---
+
+<BaseLayout
+  title={series.title}
+  description={description}
+  image={series.cover || undefined}
+  canonical={URLS.novel(series.slug)}
+>
+  <Page class="wrapper">
+    <Breadcrumb
+      items={[
+        { label: 'Home', href: '/' },
+        { label: 'Novel', href: '/novel/' },
+        { label: series.title },
+      ]}
+    />
+
+    <section class="detail">
+      <div class="detail__cover">
+        {series.cover ? (
+          <img
+            src={series.cover}
+            alt={`Cover ${series.title}`}
+            width="300"
+            height="450"
+            loading="eager"
+            fetchpriority="high"
+            decoding="async"
+          />
+        ) : (
+          <div class="cover-fallback" aria-hidden="true">Tanpa Cover</div>
+        )}
+      </div>
+
+      <div class="detail__head">
+        <Badge variant={variant} size="sm">{series.status.toUpperCase()}</Badge>
+        <h1 class="detail__title">{series.title}</h1>
+        <dl class="meta">
+          <div>
+            <dt>Penulis</dt>
+            <dd>{series.author}</dd>
+          </div>
+          {series.year && (
+            <div>
+              <dt>Tahun</dt>
+              <dd>{series.year}</dd>
+            </div>
+          )}
+          <div>
+            <dt>Chapter</dt>
+            <dd>{series.totalChapters}</dd>
+          </div>
+          {latest && (
+            <div>
+              <dt>Update</dt>
+              <dd>
+                <time datetime={latest.publishedAt.toISOString()}>
+                  {formatDate(latest.publishedAt)}
+                </time>
+              </dd>
+            </div>
+          )}
+        </dl>
+      </div>
+
+      <div class="detail__body">
+        {first ? (
+          <div class="actions">
+            <LinkButton
+              href={URLS.novelChapter(series.slug, first.number)}
+              variant="accent"
+              size="lg"
+              icon="book"
+            >
+              Mulai Baca
+            </LinkButton>
+            <LinkButton
+              href="#"
+              variant="outline"
+              size="lg"
+              icon="history"
+              hidden
+              data-continue
+            >
+              Lanjutkan
+            </LinkButton>
+          </div>
+        ) : (
+          <p class="muted">Belum ada chapter.</p>
+        )}
+
+        {series.genres.length > 0 && (
+          <ul class="genres" aria-label="Genre">
+            {series.genres.map((g) => (
+              <li>
+                <a href={URLS.genre(g)} class="genre-chip">{genreLabel(g)}</a>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {plainSynopsis && (
+          <div class="synopsis">
+            <SectionLabel as="h2" size="md">Sinopsis</SectionLabel>
+            <p>{series.synopsis}</p>
+          </div>
+        )}
+      </div>
+    </section>
+
+    <section class="chapters" data-chapters data-slug={series.slug}>
+      <header class="chapters__header">
+        <SectionLabel as="h2" size="md">
+          Daftar Chapter
+        </SectionLabel>
+        {series.totalChapters > 1 && (
+          <button
+            type="button"
+            class="sort-btn"
+            data-sort
+            aria-label="Ubah urutan chapter"
+          >
+            Terbaru dulu
+          </button>
+        )}
+      </header>
+
+      {series.totalChapters > 0 ? (
+        <ol class="chapter-list" data-list data-order="desc">
+          {newestFirst.map((c) => (
+            <li>
+              <a href={URLS.novelChapter(series.slug, c.number)} data-chapter={c.number}>
+                <span class="chapter-no">Ch. {c.number}</span>
+                <span class="chapter-name">{chapterName(c)}</span>
+                <time class="chapter-date" datetime={c.publishedAt.toISOString()}>
+                  {formatDateShort(c.publishedAt)}
+                </time>
+              </a>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p class="muted">Chapter akan segera hadir.</p>
+      )}
+    </section>
+  </Page>
+</BaseLayout>
+
+<script>
+  const section = document.querySelector<HTMLElement>('[data-chapters]');
+  const list = section?.querySelector<HTMLOListElement>('[data-list]');
+
+  if (section && list) {
+    const slug = section.dataset.slug ?? '';
+    const sortBtn = section.querySelector<HTMLButtonElement>('[data-sort]');
+
+    sortBtn?.addEventListener('click', () => {
+      const next = list.dataset.order === 'desc' ? 'asc' : 'desc';
+      list.dataset.order = next;
+      list.append(...Array.from(list.children).reverse());
+      sortBtn.textContent = next === 'desc' ? 'Terbaru dulu' : 'Terlama dulu';
+    });
+
+    const btn = document.querySelector<HTMLAnchorElement>('[data-continue]');
+
+    try {
+      const raw = localStorage.getItem(`yukionovel:last:${slug}`);
+      const parsed = raw ? (JSON.parse(raw) as { n?: unknown } | null) : null;
+      const n = parsed && typeof parsed.n === 'number' ? parsed.n : null;
+      const target =
+        n !== null
+          ? list.querySelector<HTMLAnchorElement>(`a[data-chapter="${n}"]`)
+          : null;
+
+      if (btn && target) {
+        btn.href = target.href;
+        const label = btn.querySelector('.btn-label');
+        if (label) label.textContent = `Lanjutkan Ch. ${n}`;
+        btn.hidden = false;
+        target.closest('li')?.classList.add('is-last');
+      }
+    } catch {}
+  }
+</script>
+
+<style>
+  .wrapper {
+    padding-block: var(--s-6) var(--s-12);
+    gap: var(--s-6);
+  }
+
+  .detail {
+    display: grid;
+    grid-template-columns: 7.5rem 1fr;
+    grid-template-areas:
+      'cover head'
+      'body body';
+    gap: var(--s-4) var(--s-4);
+    align-items: start;
+  }
+
+  .detail__cover {
+    grid-area: cover;
+    aspect-ratio: 2 / 3;
+    background: var(--bg-surface);
+    overflow: hidden;
+  }
+
+  .detail__cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .cover-fallback {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-size: var(--fs-xs);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .detail__head {
+    grid-area: head;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--s-2);
+    min-width: 0;
+  }
+
+  .detail__title {
+    margin: 0;
+    font-size: var(--fs-2xl);
+    font-weight: var(--fw-bold);
+    line-height: var(--lh-tight);
+    overflow-wrap: anywhere;
+  }
+
+  .meta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-1);
+    margin: 0;
+    font-size: var(--fs-sm);
+  }
+
+  .meta > div {
+    display: flex;
+    gap: var(--s-2);
+  }
+
+  .meta dt {
+    color: var(--text-muted);
+    min-width: 4.5rem;
+  }
+
+  .meta dd {
+    margin: 0;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .detail__body {
+    grid-area: body;
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-5);
+    min-width: 0;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+  }
+
+  .genres {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    padding: 0;
+    margin: 0;
+  }
+
+  .genre-chip {
+    display: inline-block;
+    padding: var(--s-1) var(--s-3);
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-medium);
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: border-color var(--t-fast), color var(--t-fast);
+  }
+
+  .genre-chip:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .synopsis {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-3);
+  }
+
+  .synopsis p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-relaxed);
+    white-space: pre-line;
+    max-width: 65ch;
+  }
+
+  .chapters {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s-4);
+    padding-top: var(--s-6);
+    border-top: 1px solid var(--border);
+  }
+
+  .chapters__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3);
+  }
+
+  .sort-btn {
+    padding: var(--s-1) var(--s-3);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: var(--r-full);
+    color: var(--text-secondary);
+    font-size: var(--fs-xs);
+    font-weight: var(--fw-semibold);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color var(--t-fast), color var(--t-fast);
+  }
+
+  .sort-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .chapter-list {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    margin: 0;
+    border: 1px solid var(--border);
+  }
+
+  .chapter-list li {
+    border-bottom: 1px solid var(--border);
+    content-visibility: auto;
+    contain-intrinsic-size: auto 3rem;
+  }
+
+  .chapter-list li:last-child {
+    border-bottom: none;
+  }
+
+  .chapter-list a {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--s-3);
+    padding: var(--s-3) var(--s-4);
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: var(--fs-sm);
+    transition: background var(--t-fast), color var(--t-fast);
+  }
+
+  .chapter-list a:hover {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+  }
+
+  .chapter-no {
+    font-weight: var(--fw-semibold);
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .chapter-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chapter-date {
+    font-size: var(--fs-xs);
+    color: var(--text-muted);
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .chapter-list li.is-last a {
+    box-shadow: inset 3px 0 0 var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .muted {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: var(--fs-sm);
+  }
+
+  @media (min-width: 50rem) {
+    .detail {
+      grid-template-columns: 15rem 1fr;
+      grid-template-areas:
+        'cover head'
+        'cover body';
+      grid-template-rows: auto 1fr;
+      gap: var(--s-5) var(--s-8);
+    }
+
+    .detail__title {
+      font-size: var(--fs-4xl);
+    }
+  }
+</style>
