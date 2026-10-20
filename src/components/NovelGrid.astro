@@ -1,0 +1,43 @@
+---
+import NovelCard from '~/components/NovelCard.astro';
+import type { SeriesInfo } from '~/lib/novel';
+
+interface Props {
+  series: SeriesInfo[];
+}
+
+const { series } = Astro.props;
+---
+
+<div class="novel-grid">
+  {series.map((s) => (
+    <NovelCard
+      novel={{
+        id: s.slug,
+        data: {
+          title: s.title,
+          cover: s.cover,
+          status: s.status,
+          author: s.author,
+          synopsis: s.synopsis,
+          chapters: s.chapters.map((c) => ({ number: c.number })),
+        },
+      }}
+    />
+  ))}
+</div>
+
+<style>
+  .novel-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--s-3);
+  }
+
+  @media (min-width: 50rem) {
+    .novel-grid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: var(--s-4);
+    }
+  }
+</style>
