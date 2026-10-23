@@ -8,6 +8,7 @@ const series = defineCollection({
   loader: glob({ pattern: '*/index.md', base: './src/content/novel' }),
   schema: z.object({
     title: z.string(),
+    altTitles: z.array(z.string()).default([]),
     author: z.string().default('Unknown'),
     cover: z.string().default(''),
     synopsis: z.string().default(''),
